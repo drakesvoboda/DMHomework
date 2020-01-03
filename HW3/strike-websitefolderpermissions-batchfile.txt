@@ -1,0 +1,32 @@
+@echo off
+
+SET _cmswebsitedir=StrikeCMS
+SET _livewebsitedir=StrikeCMSLive
+SET _cmswebsiteapppoolname=StrikeCMS
+SET _livewebsiteapppoolname=StrikeCMSLive
+SET _publishusername=cmsadmin
+
+SET /P _cmswebsitedir= Enter the CMS Website subdirectory (default is 'StrikeCMS'):
+SET /P _livewebsitedir= Enter the Live Website subdirectory (default is 'StrikeCMSLive'):
+SET /P _cmswebsiteapppoolname= Enter the CMS Website application pool name (default is 'StrikeCMS'):
+SET /P _livewebsiteapppoolname= Enter the CMS Website application pool name (default is 'StrikeCMSLive'):
+SET /P _publishusername= Enter the Publish Username (default is 'cmsadmin'):
+
+icacls "%_cmswebsitedir%\Areas\CMS\Views\templates" /grant "IIS APPPOOL\%_cmswebsiteapppoolname%":(OI)(CI)(RX,M)
+icacls "%_cmswebsitedir%\Areas\CMS\Views\Site" /grant "IIS APPPOOL\%_cmswebsiteapppoolname%":(OI)(CI)(RX,M)
+icacls "%_cmswebsitedir%\Areas\CMS\Views\Widgets" /grant "IIS APPPOOL\%_cmswebsiteapppoolname%":(OI)(CI)(RX,M)
+icacls "%_cmswebsitedir%\DeletedTemplates" /grant "IIS APPPOOL\%_cmswebsiteapppoolname%":(OI)(CI)(RX,M)
+icacls "%_cmswebsitedir%\DeletedWidget" /grant "IIS APPPOOL\%_cmswebsiteapppoolname%":(OI)(CI)(RX,M)
+icacls "%_cmswebsitedir%\imagecache" /grant "IIS APPPOOL\%_cmswebsiteapppoolname%":(OI)(CI)(RX,M)
+icacls "%_cmswebsitedir%\user_area" /grant "IIS APPPOOL\%_cmswebsiteapppoolname%":(OI)(CI)(RX,M)
+
+icacls "%_livewebsitedir%\Areas\CMS\Views\Site" /grant "IIS APPPOOL\%_livewebsiteapppoolname%":(OI)(CI)(RX,M)
+icacls "%_livewebsitedir%\Areas\CMS\Views\Widgets" /grant "IIS APPPOOL\%_livewebsiteapppoolname%":(OI)(CI)(RX,M)
+icacls "%_livewebsitedir%\imagecache" /grant "IIS APPPOOL\%_livewebsiteapppoolname%":(OI)(CI)(RX,M)
+icacls "%_livewebsitedir%\user_area" /grant "IIS APPPOOL\%_livewebsiteapppoolname%":(OI)(CI)(RX,M)
+
+icacls "%_livewebsitedir%\Areas\CMS\Views\Site" /grant "%_publishusername%":(OI)(CI)(RX,M)
+icacls "%_livewebsitedir%\Areas\CMS\Views\Widgets" /grant "%_publishusername%":(OI)(CI)(RX,M)
+icacls "%_livewebsitedir%\user_area" /grant "%_publishusername%":(OI)(CI)(RX,M)
+
+pause

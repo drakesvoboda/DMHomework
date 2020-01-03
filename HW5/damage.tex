@@ -1,0 +1,105 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{biblatex} 
+\addbibresource{bib.bib}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{RetinaNet for Road Damage Detection}
+
+
+\author{\IEEEauthorblockN{1\textsuperscript{st} Drake Svoboda}
+\textit{Wayne State University}\\
+Detroit, USA \\
+drake.svoboda@wayne.edu}
+
+\maketitle
+
+\begin{abstract}
+We trained a RetinaNet object detector to compete in the \textit{Road Damage Detection Challenge} hosted at the 2018 \textit{IEEE Big Data Cup}. Our model achieved a 0.54 F-Measure on the test set withheld by the competition's organizers. Code can be found at github.com/deepditch/deep.lib.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Object detection, Computer vision, CNN, Deep learning
+\end{IEEEkeywords}
+
+\section{Introduction}
+We describe an adaptation of RetinaNet \cite{retinanet} for road damage detection. The network is comprised of a ResNet-34-FPN backbone and two subnetworks: a classification subnetwork and a bounding box regression subnetwork. We trained our model on the road damage dataset gathered in \cite{damage}. We evaluate the performance of our model on a validation and test set. We also evaluate the computational performance of our model. 
+
+\section{Model Architecture}
+
+\subsection{ResNet-FPN Backbone}
+
+An FPN with 4 levels, $\{P_4, P_5, P_6, P_7\}$, was built on top of a pretrained ResNet 34 base network. Each level $P_l$ has 256 channels and a resolution $2^l$ lower than the input image \cite{fpn}. The shared classification subnet and box regression subnet make predictions at each level of the FPN. This architecture differs slightly from \cite{retinanet} as $P_3$ was not used. We chose to remove $P_3$ since few ground truth bounding boxes having a width or height less than 32 pixels and removing $P_3$ improves computational performance. Fig. 1 and Fig. 2 show of ground truth bounding box width and height distributions respectively.
+
+\subsection{Anchor Boxes}
+Anchor boxes have areas $\{54^2, 108^2, 216^2, 432^2\}$ on levels $P_4$-$P_7$ respectively. These are smaller than the anchor boxes described in \cite{retinanet}. The authors of \cite{retinanet} used 600 pixel images; however, we chose to use 512 pixel images instead and therefore scaled the anchor boxes accordingly. Additionally, at each pyramid level anchors with ratios $\{20:3, 20:7, 20:13, 1:1, 13:20, 7:20\}$ were used; that is, each spatial location has $A = 6$ anchor boxes. These ratios were chosen to cover the distribution of bounding box aspect ratios in the dataset. Fig. 3 shows the bounding box aspect ratio distribution. Each anchor box is assigned a $K = 9$ one hot vector for the class label and a 4-vector for regression targets. Anchor boxes are assigned according to the assignment rules described in \cite{retinanet}. Specifically, anchor boxes are assigned to a ground truth object if the anchor box and the ground truth object have a Jaccard index (intersection over union) greater than or equal to .5. Anchor boxes are assigned to the background class if the Jaccard index is less than .4. Anchor boxes with a Jaccard index in $[.4,.5)$ were ignored during training.
+
+\begin{figure*}[htbp]
+\minipage{0.5\textwidth}
+  \includegraphics[width=\linewidth]{widths.png}
+  \caption{Ground truth bounding box width distribution.}\label{fig:awesome_image2}
+\endminipage\hfill
+\minipage{0.5\textwidth}
+  \includegraphics[width=\linewidth]{heights.png}
+  \caption{Ground truth bounding box height distribution.}\label{fig:awesome_image1}
+\endminipage\hfill
+\minipage{1\textwidth}%
+  \includegraphics[width=\linewidth]{ratios.png}
+  \caption{Ground truth bounding aspect ratio distribution.}\label{fig:awesome_image3}
+\endminipage
+\label{fig}
+\end{figure*}
+
+\subsection{Classification Subnet}
+The classification subnet has four $3 \times 3$ convolutional layers. Each convolutional layer is followed by a ReLU activation function. The classification subnet outputs a final $3 \times 3$ convolutional layer with $K * A$ channels followed by a sigmoid activation function. Each set of $K$ activations predict the class label for an anchor box in the corresponding spatial location. This structure matches the structure described in \cite{retinanet}.
+
+\subsection{Regression Subnet}
+The box regression subnet is identical to the classification subnet except for its output layer. The box regression subnet outputs a final $3 \times 3$ convolutional layer with $4 * A$ channels. Each set of 4 activations predict the offset from the an anchor box in the corresponding spatial location. Again, this structure matches the structure described in \cite{retinanet}. 
+
+\subsection{Initialization}
+The ResNet-34 base network was initialized with pretrained weights and biases. The parameters for the batch normalization layers of the ResNet-34 base network were not updated during training. We initialized additional convolutional layers in accordance with \cite{retinanet}. 
+
+\section{Training}
+80\% of the total dataset was released by the organizers of the \textit{Road Damage Detection} challenge. The remaining 20\% was withheld for scoring the competition. Of the 80\% released, we took a 9:1 random split for training and validation respectively. The model was trained for 63 epochs on the training set.  
+
+\subsection{Focal Loss}
+We used focal loss as described in \cite{retinanet} with $\gamma = 2$ and $\alpha = .5$ on the output of the classification subnet. Loss was computed as the sum over all of the non-ignored anchor boxes divided by the number of anchor boxes assigned to a ground truth object. We used smooth L1 loss on the output of the regression subnet \cite{rcnn}. We calculated total loss as the sum of the classification loss and the regression loss.  
+
+\subsection{Optimization}
+During training, we used dropout regularization with $p = .2$ for each convolutional layer in the FPN and the subnets. The Adam optimizer \cite{adam} was used with an initial learning rate if .0001. The learning rate was decayed to .000001 with a cosine annealing as described in \cite{sgdr} with $T_{mult} = 2$.
+
+For data augmentation, we randomly scaled images between 512 pixels and 600 pixels. After scaling, we took a random 512 pixel crop. Additionally, images were randomly horizontally flipped with a probability of .5.
+
+\section{Evaluation}
+We applied non-maximum suppression to the outputs of our model for evaluation. Our model was evaluated against the \textit{Road Damage Detection Challenge} test set and our own withheld validation set. The precision and recall for each class on our validation set is presented in Table 1. We used a Jaccard index of .5 or greater to determine positive matches. Inference takes roughly 10ms on an Nvidia Quadro P5000 GPU.
+
+\begin{table}
+\caption{Detection and classification results for each class}
+\centering
+\begin{tabular}{ccccccccc}
+\hline
+\textbf{Class} & \textbf{D00} & \textbf{D01} & \textbf{D10} & \textbf{D11} & \textbf{D20} & \textbf{D40} & \textbf{D43} & \textbf{D44} \\
+\hline
+Precision & 0.48 & 0.66 & 0.33 & 0.16 & 0.69 & 0.19 & 0.77 & 0.74 \\
+Recall 	  & 0.58 & 0.76 & 0.23 & 0.15 & 0.72 & 0.30 & 0.74 & 0.76 \\
+\hline
+\end{tabular}{}
+\label{result}
+\end{table}
+
+Our model achieved a 0.54 F-Measure on the test set withheld by the competition organizers. 
+
+
+
+\nocite{*}
+\printbibliography
+
+\end{document}
